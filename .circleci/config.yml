@@ -15,7 +15,7 @@ jobs:
       - run: 'PAYLOAD=`pwd`/mr go test -bench .'
   "golang-latest":
     docker:
-      - image: cimg/go:latest
+      - image: cimg/go:1.21
     steps:
       - checkout
       - run: 'sudo apt-get update'
