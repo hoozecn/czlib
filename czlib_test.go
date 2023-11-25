@@ -2,6 +2,7 @@ package czlib
 
 import (
 	"bytes"
+	stdgzip "compress/gzip"
 	"compress/zlib"
 	"hash/adler32"
 	"hash/crc32"
@@ -42,12 +43,24 @@ func (pt *prettyTimer) stopAndPrintUncompress(t *testing.T, processed int) {
 	t.Log("       speed:", processed*1000/durationMs, "KB/s")
 }
 
-func compareCompressedBuffer(t *testing.T, source []byte, compressed *bytes.Buffer) {
+func compareCompressedBuffer(t *testing.T, source []byte, compressed *bytes.Buffer, wbits int) {
 	// compare using go's gunzip
 	toGunzip := bytes.NewBuffer(compressed.Bytes())
-	gunzip, err := zlib.NewReader(toGunzip)
-	if err != nil {
-		t.Errorf("zlib.NewReader failed: %v", err)
+	var (
+		gunzip io.ReadCloser
+		err    error
+	)
+
+	if wbits > 15 {
+		gunzip, err = stdgzip.NewReader(toGunzip)
+		if err != nil {
+			t.Errorf("zlib.NewReader failed: %v", err)
+		}
+	} else {
+		gunzip, err = zlib.NewReader(toGunzip)
+		if err != nil {
+			t.Errorf("zlib.NewReader failed: %v", err)
+		}
 	}
 	uncompressed := &bytes.Buffer{}
 	pt := newPrettyTimer("go unzip")
@@ -207,7 +220,7 @@ func testChecksums(t *testing.T, data []byte) {
 	}
 }
 
-func runCompare(t *testing.T, testSize int, level int) {
+func runCompare(t *testing.T, testSize int, level int, wbits int) {
 
 	// create a test chunk, put semi-random bytes in there
 	// (so compression actually will compress some)
@@ -227,59 +240,31 @@ func runCompare(t *testing.T, testSize int, level int) {
 	compressed := &bytes.Buffer{}
 	reader := bytes.NewBuffer(toEncode)
 	pt := newPrettyTimer("Go zlib")
-	gz, err := zlib.NewWriterLevel(compressed, level)
-	_, err = io.Copy(gz, reader)
+	var (
+		z   io.WriteCloser
+		err error
+	)
+	if wbits > 15 {
+		z, err = stdgzip.NewWriterLevel(compressed, level)
+	} else {
+		z, err = zlib.NewWriterLevel(compressed, level)
+	}
+	if err != nil {
+		t.Errorf("NewWriterLevel failed: %v", err)
+	}
+	_, err = io.Copy(z, reader)
 	if err != nil {
 		t.Errorf("Copy failed: %v", err)
 	}
-	gz.Close()
+	z.Close()
 	pt.stopAndPrintCompress(t, compressed.Len(), len(toEncode))
-	compareCompressedBuffer(t, toEncode, compressed)
-
-	// this code used to time gzip forked vs cgzip, but since gzip header != zlib
-	// header it no longer works and isn't really relevant
-
-	// now time a forked gzip
-	/*
-		compressed2 := &bytes.Buffer{}
-		reader = bytes.NewBuffer(toEncode)
-		cmd := exec.Command("gzip", fmt.Sprintf("-%v", level), "-c")
-		stdout, err := cmd.StdoutPipe()
-		if err != nil {
-			t.Errorf("StdoutPipe failed: %v", err)
-		}
-		stdin, err := cmd.StdinPipe()
-		if err != nil {
-			t.Errorf("StdinPipe failed: %v", err)
-		}
-		wg := sync.WaitGroup{}
-		wg.Add(1)
-		go func() {
-			io.Copy(compressed2, stdout)
-			wg.Done()
-		}()
-		if err = cmd.Start(); err != nil {
-			t.Errorf("Start failed: %v", err)
-		}
-		pt = newPrettyTimer("Forked gzip")
-		_, err = io.Copy(stdin, reader)
-		if err != nil {
-			t.Errorf("Copy failed: %v", err)
-		}
-		stdin.Close()
-		wg.Wait()
-		if err := cmd.Wait(); err != nil {
-			t.Errorf("Wait failed: %v", err)
-		}
-		pt.stopAndPrintCompress(t, compressed2.Len(), len(toEncode))
-		compareCompressedBuffer(t, toEncode, compressed2)
-	*/
+	compareCompressedBuffer(t, toEncode, compressed, wbits)
 
 	// and time the cgo version
 	compressed3 := &bytes.Buffer{}
 	reader = bytes.NewBuffer(toEncode)
 	pt = newPrettyTimer("czlib")
-	cgz, err := NewWriterLevel(compressed3, level)
+	cgz, err := NewWriterLevelBufferWbits(compressed3, level, DEFAULT_COMPRESSED_BUFFER_SIZE, wbits)
 	if err != nil {
 		t.Errorf("NewWriterLevel failed: %v", err)
 	}
@@ -294,16 +279,24 @@ func runCompare(t *testing.T, testSize int, level int) {
 		t.Errorf("Close failed: %v", err)
 	}
 	pt.stopAndPrintCompress(t, compressed3.Len(), len(toEncode))
-	compareCompressedBuffer(t, toEncode, compressed3)
+	compareCompressedBuffer(t, toEncode, compressed3, wbits)
 
 	testChecksums(t, toEncode)
 }
 
 // use 'go test -v' and bigger sizes to show meaningful rates
 func TestCompare(t *testing.T) {
-	runCompare(t, 1*1024*1024, 1)
+	runCompare(t, 1*1024*1024, 1, 0)
 }
 
 func TestCompareBest(t *testing.T) {
-	runCompare(t, 1*1024*1024, 9)
+	runCompare(t, 1*1024*1024, 9, 0)
+}
+
+func TestCompareGZ(t *testing.T) {
+	runCompare(t, 1*1024*1024, 1, 31)
+}
+
+func TestCompareBestGZ(t *testing.T) {
+	runCompare(t, 1*1024*1024, 9, 31)
 }
