@@ -51,7 +51,7 @@ func compareCompressedBuffer(t *testing.T, source []byte, compressed *bytes.Buff
 		err    error
 	)
 
-	if wbits > 15 {
+	if wbits > MaxWbits {
 		gunzip, err = stdgzip.NewReader(toGunzip)
 		if err != nil {
 			t.Errorf("zlib.NewReader failed: %v", err)
@@ -244,7 +244,7 @@ func runCompare(t *testing.T, testSize int, level int, wbits int) {
 		z   io.WriteCloser
 		err error
 	)
-	if wbits > 15 {
+	if wbits > MaxWbits {
 		z, err = stdgzip.NewWriterLevel(compressed, level)
 	} else {
 		z, err = zlib.NewWriterLevel(compressed, level)

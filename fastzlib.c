@@ -69,7 +69,7 @@ ByteArray c_decompress(char *input, uint length) {
     zst.next_out = (Byte *)ret.str;
     zst.next_in = (Byte *)input;
 
-    err = inflateInit2(&zst, wsize|32);
+    err = inflateInit2(&zst, MAX_WBITS|32);
 
     switch(err) {
     case(Z_OK):
@@ -139,7 +139,7 @@ ByteArray c_compress_(char *input, uint length, int wbits) {
     z_stream zst;
 
     if (wbits == 0) {
-        wbits = 15;
+        wbits = MAX_WBITS;
     }
 
     // allocate the maximum possible length of the output up front

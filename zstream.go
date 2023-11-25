@@ -14,6 +14,8 @@ package czlib
 #include "zconf.h"
 #include "zlib.h"
 
+const int AUTO_WBITS = MAX_WBITS | 32;
+
 // inflateInit is a macro, so using a wrapper function
 int zstream_inflate_init(char *strm) {
   ((z_stream*)strm)->zalloc = Z_NULL;
@@ -21,7 +23,7 @@ int zstream_inflate_init(char *strm) {
   ((z_stream*)strm)->opaque = Z_NULL;
   ((z_stream*)strm)->avail_in = 0;
   ((z_stream*)strm)->next_in = Z_NULL;
-  return inflateInit2((z_stream*)strm, MAX_WBITS|32);
+  return inflateInit2((z_stream*)strm, AUTO_WBITS);
 }
 
 // deflateInit2 is a macro, so using a wrapper function
@@ -164,3 +166,6 @@ func (strm *zstream) deflate(flag int) {
 		panic(fmt.Errorf("cgzip: Unexpected error (1)"))
 	}
 }
+
+const MaxWbits = C.MAX_WBITS
+const GZipWbits = C.MAX_WBITS | 16
