@@ -69,7 +69,7 @@ ByteArray c_decompress(char *input, uint length) {
     zst.next_out = (Byte *)ret.str;
     zst.next_in = (Byte *)input;
 
-    err = inflateInit2(&zst, wsize);
+    err = inflateInit2(&zst, wsize|32);
 
     switch(err) {
     case(Z_OK):
@@ -132,13 +132,15 @@ error:
     return ret;
 }
 
-// entirely compress input, returning a compressed  ByteArray
-// return value is a ByteArray whose err/str, if set, must be freed.
-ByteArray c_compress(char *input, uint length) {
+ByteArray c_compress_(char *input, uint length, int wbits) {
     ByteArray ret;
     // FIXME: allow this to be tunable?
     int err, level=Z_DEFAULT_COMPRESSION;
     z_stream zst;
+
+    if (wbits == 0) {
+        wbits = 15;
+    }
 
     // allocate the maximum possible length of the output up front
     // this calculation comes from python and is almost certainly safe
@@ -157,7 +159,9 @@ ByteArray c_compress(char *input, uint length) {
     zst.next_in = (Byte *)input;
     zst.avail_in = length;
 
-    err = deflateInit(&zst, level);
+    err = deflateInit2(&zst, level, Z_DEFLATED,
+                        wbits, // 16 makes it a gzip file, 15 is default
+                        8, Z_DEFAULT_STRATEGY); // default values
 
     switch(err) {
     case(Z_OK):
@@ -216,11 +220,17 @@ error:
 }
 
 
+// entirely compress input, returning a compressed  ByteArray
+// return value is a ByteArray whose err/str, if set, must be freed.
+ByteArray c_compress(char *input, uint length) {
+    return c_compress_(input, length, MAX_WBITS);
+}
+
 // entirely compress input, returning a compressed ByteArray
 // return value is a ByteArray whose err/str, if set, must be freed.
 // This version of compress uses the defaultbuffer + doubling growth
 // like the decompress version does.
-ByteArray c_compress2(char *input, uint length) {
+ByteArray c_compress2_(char *input, uint length, int wbits) {
     ByteArray ret;
     // FIXME: allow this to be tunable?
     int err, grow, level=Z_DEFAULT_COMPRESSION;
@@ -254,8 +264,12 @@ ByteArray c_compress2(char *input, uint length) {
     zst.next_in = (Byte *)input;
     zst.avail_in = length;
 
+    if (wbits == 0) {
+        wbits = MAX_WBITS;
+    }
+
     err = deflateInit2(&zst, level, Z_DEFLATED,
-                        15, // 16 makes it a gzip file, 15 is default
+                        wbits, // 16 makes it a gzip file, 15 is default
                         8, Z_DEFAULT_STRATEGY); // default values
 
     switch(err) {
@@ -327,4 +341,9 @@ error:
     if (ret.str != NULL) free(ret.str);
     if (ret.err == NULL) ret.err = zlib_error(zst, err, "while compressing data");
     return ret;
+}
+
+
+ByteArray c_compress2(char *input, uint length) {
+    return c_compress2_(input, length, MAX_WBITS);
 }

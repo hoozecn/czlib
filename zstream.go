@@ -11,6 +11,7 @@ package czlib
 #cgo CFLAGS: -Werror=implicit
 #cgo pkg-config: zlib
 
+#include "zconf.h"
 #include "zlib.h"
 
 // inflateInit is a macro, so using a wrapper function
@@ -20,15 +21,21 @@ int zstream_inflate_init(char *strm) {
   ((z_stream*)strm)->opaque = Z_NULL;
   ((z_stream*)strm)->avail_in = 0;
   ((z_stream*)strm)->next_in = Z_NULL;
-  return inflateInit((z_stream*)strm);
+  return inflateInit2((z_stream*)strm, MAX_WBITS|32);
+}
+
+// deflateInit2 is a macro, so using a wrapper function
+int zstream_deflate_init2(char *strm, int level, int wbits) {
+  if (0 == wbits) wbits = MAX_WBITS;
+  ((z_stream*)strm)->zalloc = Z_NULL;
+  ((z_stream*)strm)->zfree = Z_NULL;
+  ((z_stream*)strm)->opaque = Z_NULL;
+  return deflateInit2((z_stream*)strm, level, Z_DEFLATED, wbits, 8, Z_DEFAULT_STRATEGY);
 }
 
 // deflateInit is a macro, so using a wrapper function
 int zstream_deflate_init(char *strm, int level) {
-  ((z_stream*)strm)->zalloc = Z_NULL;
-  ((z_stream*)strm)->zfree = Z_NULL;
-  ((z_stream*)strm)->opaque = Z_NULL;
-  return deflateInit((z_stream*)strm, level);
+  return zstream_deflate_init2(strm, level, MAX_WBITS);
 }
 
 unsigned int zstream_avail_in(char *strm) {
