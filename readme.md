@@ -1,3 +1,4 @@
+```
 cpu: AMD Ryzen 9 5950X 16-Core Processor
 
 std:
@@ -56,3 +57,4 @@ BenchmarkDecompressUnsafe-32              207081              5765 ns/op        
 BenchmarkDecompress-32                    161613              7337 ns/op        2365.83 MB/s
 BenchmarkDecompressStream-32               50998             22794 ns/op         761.47 MB/s
 BenchmarkDecompressStdZlib-32              62338             19650 ns/op         883.30 MB/s
+```
