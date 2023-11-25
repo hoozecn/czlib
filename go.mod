@@ -1,3 +1,3 @@
-module github.com/DataDog/czlib
+module github.com/hoozecn/czlib
 
-go 1.14
+go 1.20
