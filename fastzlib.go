@@ -133,3 +133,5 @@ func UnsafeCompress2(input []byte, wbits int) (UnsafeByte, error) {
 	b := NewUnsafeByte((*C.char)(ret.str), int(ret.len))
 	return b, nil
 }
+
+const MaxWbits = C.MAX_WBITS
