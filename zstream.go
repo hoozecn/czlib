@@ -25,17 +25,12 @@ int zstream_inflate_init(char *strm) {
 }
 
 // deflateInit2 is a macro, so using a wrapper function
-int zstream_deflate_init2(char *strm, int level, int wbits) {
+int zstream_deflate_init(char *strm, int level, int wbits) {
   if (0 == wbits) wbits = MAX_WBITS;
   ((z_stream*)strm)->zalloc = Z_NULL;
   ((z_stream*)strm)->zfree = Z_NULL;
   ((z_stream*)strm)->opaque = Z_NULL;
   return deflateInit2((z_stream*)strm, level, Z_DEFLATED, wbits, 8, Z_DEFAULT_STRATEGY);
-}
-
-// deflateInit is a macro, so using a wrapper function
-int zstream_deflate_init(char *strm, int level) {
-  return zstream_deflate_init2(strm, level, MAX_WBITS);
 }
 
 unsigned int zstream_avail_in(char *strm) {
@@ -106,7 +101,7 @@ func (strm *zstream) deflateInit(level int) error {
 }
 
 func (strm *zstream) deflateInit2(level, wbits int) error {
-	result := C.zstream_deflate_init2(&strm[0], C.int(level), C.int(wbits))
+	result := C.zstream_deflate_init(&strm[0], C.int(level), C.int(wbits))
 	if result != Z_OK {
 		return fmt.Errorf("cgzip: failed to initialize deflate (%v): %v", result, strm.msg())
 	}
