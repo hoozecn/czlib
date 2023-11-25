@@ -5,12 +5,12 @@ import (
 	"compress/zlib"
 	"crypto/rand"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"testing"
 )
 
-var gzipped, raw []byte
+var deflated []byte
 
 func zip(b []byte) []byte {
 	var out bytes.Buffer
@@ -20,19 +20,49 @@ func zip(b []byte) []byte {
 	return out.Bytes()
 }
 
-func init() {
-	var err error
+var raw []byte
+
+func getRaw() []byte {
+	if len(raw) != 0 {
+		return raw
+	}
+
+	var (
+		err error
+	)
+
 	payload := os.Getenv("PAYLOAD")
 	if len(payload) == 0 {
-		fmt.Println("You must provide PAYLOAD env var for path to test payload.")
-		return
+		fmt.Println("provide PAYLOAD env var for path to test custom payload.")
+		tmpFile, err := os.CreateTemp("", "payload")
+		if err != nil {
+			fmt.Printf("Error creating temp file: %s\n", err)
+			panic(err)
+		}
+
+		buffer := make([]byte, 1021*17)
+		rand.Read(buffer)
+		tmpFile.Write(buffer)
+		tmpFile.Close()
+		os.Setenv("PAYLOAD", tmpFile.Name())
+		payload = tmpFile.Name()
 	}
-	raw, err = ioutil.ReadFile(payload)
+
+	raw, err = os.ReadFile(payload)
 	if err != nil {
 		fmt.Printf("Error opening payload: %s\n", err)
 	}
-	gzipped = zip(raw)
-	// fmt.Printf("%d byte test payload (%d orig)\n", len(gzipped), len(raw))
+
+	if len(raw) == 0 {
+		panic("payload is empty")
+	}
+
+	return raw
+}
+
+func init() {
+	deflated = zip(getRaw())
+	// fmt.Printf("%d byte test payload (%d orig)\n", len(deflated), len(raw))
 }
 
 // Generate an n-byte long []byte
@@ -95,7 +125,28 @@ func TestUnsafeZlib(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if bytes.Compare(decomp, data) != 0 {
+		if !bytes.Equal(decomp, data) {
+			t.Fatal("Compress -> Decompress on byte array failed to match original data.")
+		}
+		comp.Free()
+		decomp.Free()
+	}
+
+	for _, i := range []int{10, 128, 1000, 1024 * 10, 1024 * 100, 1024 * 1024, 1024 * 1024 * 7} {
+		data, err := genData(i)
+		if err != nil {
+			t.Error(err)
+			continue
+		}
+		comp, err := UnsafeCompress2(data, GZipWbits)
+		if err != nil {
+			t.Fatal(err)
+		}
+		decomp, err := UnsafeDecompress(comp)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(decomp, data) {
 			t.Fatal("Compress -> Decompress on byte array failed to match original data.")
 		}
 		comp.Free()
@@ -153,7 +204,7 @@ func BenchmarkDecompressUnsafe(b *testing.B) {
 	}
 	b.SetBytes(int64(len(raw)))
 	for i := 0; i < b.N; i++ {
-		u, _ := UnsafeDecompress(gzipped)
+		u, _ := UnsafeDecompress(deflated)
 		u.Free()
 	}
 }
@@ -164,7 +215,7 @@ func BenchmarkDecompress(b *testing.B) {
 	}
 	b.SetBytes(int64(len(raw)))
 	for i := 0; i < b.N; i++ {
-		Decompress(gzipped)
+		Decompress(deflated)
 	}
 }
 
@@ -174,7 +225,7 @@ func BenchmarkDecompressStream(b *testing.B) {
 	}
 	b.SetBytes(int64(len(raw)))
 	for i := 0; i < b.N; i++ {
-		gunzip(gzipped)
+		gunzip(deflated)
 	}
 }
 
@@ -184,7 +235,7 @@ func BenchmarkDecompressStdZlib(b *testing.B) {
 	}
 	b.SetBytes(int64(len(raw)))
 	for i := 0; i < b.N; i++ {
-		zunzip(gzipped)
+		zunzip(deflated)
 	}
 }
 
@@ -195,16 +246,16 @@ func gunzip(body []byte) ([]byte, error) {
 	if err != nil {
 		return []byte{}, err
 	}
-	return ioutil.ReadAll(reader)
+	return io.ReadAll(reader)
 }
 
-// unzip a gzipped []byte payload, returning the unzipped []byte and error
+// unzip a deflated []byte payload, returning the unzipped []byte and error
 func zunzip(body []byte) ([]byte, error) {
 	reader, err := zlib.NewReader(bytes.NewBuffer(body))
 	if err != nil {
 		return []byte{}, err
 	}
-	return ioutil.ReadAll(reader)
+	return io.ReadAll(reader)
 }
 
 func gzip(body []byte) ([]byte, error) {

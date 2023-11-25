@@ -1,4 +1,3 @@
-
 typedef unsigned int uint;
 
 /* simulate the Go return type ([]byte, error) so that the Go function
@@ -13,5 +12,5 @@ typedef struct {
 
 ByteArray c_decompress(char *input, uint length);
 ByteArray c_compress(char *input, uint length);
-ByteArray c_compress2(char *input, uint length);
-
+ByteArray c_compress_(char *input, uint length, int wbits);
+ByteArray c_compress2(char *input, uint length, int wbits);

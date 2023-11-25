@@ -11,7 +11,10 @@ package czlib
 #cgo CFLAGS: -Werror=implicit
 #cgo pkg-config: zlib
 
+#include "zconf.h"
 #include "zlib.h"
+
+const int AUTO_WBITS = MAX_WBITS | 32;
 
 // inflateInit is a macro, so using a wrapper function
 int zstream_inflate_init(char *strm) {
@@ -20,15 +23,16 @@ int zstream_inflate_init(char *strm) {
   ((z_stream*)strm)->opaque = Z_NULL;
   ((z_stream*)strm)->avail_in = 0;
   ((z_stream*)strm)->next_in = Z_NULL;
-  return inflateInit((z_stream*)strm);
+  return inflateInit2((z_stream*)strm, AUTO_WBITS);
 }
 
-// deflateInit is a macro, so using a wrapper function
-int zstream_deflate_init(char *strm, int level) {
+// deflateInit2 is a macro, so using a wrapper function
+int zstream_deflate_init(char *strm, int level, int wbits) {
+  if (0 == wbits) wbits = MAX_WBITS;
   ((z_stream*)strm)->zalloc = Z_NULL;
   ((z_stream*)strm)->zfree = Z_NULL;
   ((z_stream*)strm)->opaque = Z_NULL;
-  return deflateInit((z_stream*)strm, level);
+  return deflateInit2((z_stream*)strm, level, Z_DEFLATED, wbits, 8, Z_DEFAULT_STRATEGY);
 }
 
 unsigned int zstream_avail_in(char *strm) {
@@ -95,7 +99,11 @@ func (strm *zstream) inflateInit() error {
 }
 
 func (strm *zstream) deflateInit(level int) error {
-	result := C.zstream_deflate_init(&strm[0], C.int(level))
+	return strm.deflateInit2(level, 0)
+}
+
+func (strm *zstream) deflateInit2(level, wbits int) error {
+	result := C.zstream_deflate_init(&strm[0], C.int(level), C.int(wbits))
 	if result != Z_OK {
 		return fmt.Errorf("cgzip: failed to initialize deflate (%v): %v", result, strm.msg())
 	}
@@ -158,3 +166,6 @@ func (strm *zstream) deflate(flag int) {
 		panic(fmt.Errorf("cgzip: Unexpected error (1)"))
 	}
 }
+
+const MaxWbits = C.MAX_WBITS
+const GZipWbits = C.MAX_WBITS | 16

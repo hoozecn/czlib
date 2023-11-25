@@ -22,10 +22,14 @@ type UnsafeByte []byte
 
 // NewUnsafeByte creates a []byte from the unsafe pointer without a copy,
 // using the method outlined in this mailing list post:
-//   https://groups.google.com/forum/#!topic/golang-nuts/KyXR0fDp0HA
+//
+//	https://groups.google.com/forum/#!topic/golang-nuts/KyXR0fDp0HA
+//
 // but amended to use the three-index slices from go1.2 to set the capacity
 // of b correctly:
-//   https://tip.golang.org/doc/go1.2#three_index
+//
+//	https://tip.golang.org/doc/go1.2#three_index
+//
 // This means this code only works in go1.2+.
 //
 // This shouldn't copy the underlying array;  it's just casting it
@@ -41,13 +45,17 @@ func (b UnsafeByte) Free() {
 	C.free(unsafe.Pointer(&b[0]))
 }
 
-// Compress returns the input compressed using zlib, or an error if encountered.
 func Compress(input []byte) ([]byte, error) {
+	return Compress2(input, 0)
+}
+
+// Compress returns the input compressed using zlib, or an error if encountered.
+func Compress2(input []byte, wbits int) ([]byte, error) {
 	var cInput *C.char
 	if len(input) != 0 {
 		cInput = (*C.char)(unsafe.Pointer(&input[0]))
 	}
-	ret := C.c_compress2(cInput, C.uint(len(input)))
+	ret := C.c_compress2(cInput, C.uint(len(input)), C.int(wbits))
 
 	// if there was an error compressing, return it and free the original message
 	if ret.err != nil {
@@ -104,12 +112,16 @@ func UnsafeDecompress(input []byte) (UnsafeByte, error) {
 	return b, nil
 }
 
+func UnsafeCompress(input []byte) (UnsafeByte, error) {
+	return UnsafeCompress2(input, 0)
+}
+
 // UnsafeCompress zips input into an UnsafeByte without copying the result
 // malloced in C.  The UnsafeByte returned can be used as a normal []byte but must
 // be manually free'd w/ UnsafeByte.Free()
-func UnsafeCompress(input []byte) (UnsafeByte, error) {
+func UnsafeCompress2(input []byte, wbits int) (UnsafeByte, error) {
 	cInput := (*C.char)(unsafe.Pointer(&input[0]))
-	ret := C.c_compress(cInput, C.uint(len(input)))
+	ret := C.c_compress2(cInput, C.uint(len(input)), C.int(wbits))
 
 	// if there was an error decompressing, return it and free the original message
 	if ret.err != nil {
