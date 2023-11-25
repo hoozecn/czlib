@@ -4,27 +4,30 @@ jobs:
   "golang-1.20":
     docker:
       - image: cimg/go:1.20
-    steps:
+    steps: &steps
       - checkout
       - run: 'sudo apt-get update'
-      - run: 'sudo apt-get install -y zlib1g-dev'
+      - run: 'sudo apt-get install -y zlib1g-dev cmake'
       - run: 'wget https://github.com/DataDog/zstd/files/2246767/mr.zip'
       - run: 'unzip mr.zip'
       - run: 'go build'
       - run: 'PAYLOAD=`pwd`/mr go test -v'
       - run: 'PAYLOAD=`pwd`/mr go test -bench .'
+      - run: 'git clone https://github.com/cloudflare/zlib.git'
+      - run: 'cd zlib && ./configure --prefix=/tmp/cf-zlib --static && CPPFLAGS=-DNDEBUG make install'
+      - run: 'go clean -cache && go clean -testcache'
+      - run: 'PAYLOAD=`pwd`/mr PKG_CONFIG_PATH=/tmp/cf-zlib/libs/pkgconfig go test -v'
+      - run: 'PAYLOAD=`pwd`/mr PKG_CONFIG_PATH=/tmp/cf-zlib/libs/pkgconfig go test -bench .'
+      - run: 'rm -rf zlib && git clone https://chromium.googlesource.com/chromium/src/third_party/zlib.git'
+      - run: 'mkdir -p /tmp/chromium-zlib && cmake -S zlib -B /tmp/chromium-zlib -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/tmp/chromium-zlib'
+      - run: 'cd /tmp/chromium-zlib && make install && rm *.so*'
+      - run: 'go clean -cache && go clean -testcache'
+      - run: 'PAYLOAD=`pwd`/mr PKG_CONFIG_PATH=/tmp/chromium-zlib/share/pkgconfig go test -v'
+      - run : 'PAYLOAD=`pwd`/mr PKG_CONFIG_PATH=/tmp/chromium-zlib/share/pkgconfig go test -bench .'
   "golang-latest":
     docker:
       - image: cimg/go:1.21
-    steps:
-      - checkout
-      - run: 'sudo apt-get update'
-      - run: 'sudo apt-get install -y zlib1g-dev'
-      - run: 'wget https://github.com/DataDog/zstd/files/2246767/mr.zip'
-      - run: 'unzip mr.zip'
-      - run: 'go build'
-      - run: 'PAYLOAD=`pwd`/mr go test -v'
-      - run: 'PAYLOAD=`pwd`/mr go test -bench .'
+    steps: *steps
 
 workflows:
   version: 2
