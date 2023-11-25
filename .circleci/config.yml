@@ -3,7 +3,7 @@ version: 2
 jobs:
   "golang-1.20":
     docker:
-      - image: circleci/golang:1.20
+      - image: cimg/go:1.20
     steps:
       - checkout
       - run: 'sudo apt-get update'
@@ -15,7 +15,7 @@ jobs:
       - run: 'PAYLOAD=`pwd`/mr go test -bench .'
   "golang-latest":
     docker:
-      - image: circleci/golang:latest
+      - image: cimg/go:latest
     steps:
       - checkout
       - run: 'sudo apt-get update'
