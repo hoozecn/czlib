@@ -58,6 +58,12 @@ func NewWriter(w io.Writer) *Writer {
 	return z
 }
 
+// NewWriter returns a new zlib writer that writes to the underlying writer
+func NewWriter2(w io.Writer, level, wbits int) *Writer {
+	z, _ := NewWriterLevelBufferWbits(w, DefaultCompression, DEFAULT_COMPRESSED_BUFFER_SIZE, wbits)
+	return z
+}
+
 // NewWriterLevel let the user provide a compression level value
 func NewWriterLevel(w io.Writer, level int) (*Writer, error) {
 	return NewWriterLevelBuffer(w, level, DEFAULT_COMPRESSED_BUFFER_SIZE)
@@ -67,6 +73,15 @@ func NewWriterLevel(w io.Writer, level int) (*Writer, error) {
 func NewWriterLevelBuffer(w io.Writer, level, bufferSize int) (*Writer, error) {
 	z := &Writer{w: w, out: make([]byte, bufferSize)}
 	if err := z.strm.deflateInit(level); err != nil {
+		return nil, err
+	}
+	return z, nil
+}
+
+// NewWriterLevelBuffer let the user provide compression level and buffer size values
+func NewWriterLevelBufferWbits(w io.Writer, level, bufferSize, wbits int) (*Writer, error) {
+	z := &Writer{w: w, out: make([]byte, bufferSize)}
+	if err := z.strm.deflateInit2(level, wbits); err != nil {
 		return nil, err
 	}
 	return z, nil

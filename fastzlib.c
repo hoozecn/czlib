@@ -230,7 +230,7 @@ ByteArray c_compress(char *input, uint length) {
 // return value is a ByteArray whose err/str, if set, must be freed.
 // This version of compress uses the defaultbuffer + doubling growth
 // like the decompress version does.
-ByteArray c_compress2_(char *input, uint length, int wbits) {
+ByteArray c_compress2(char *input, uint length, int wbits) {
     ByteArray ret;
     // FIXME: allow this to be tunable?
     int err, grow, level=Z_DEFAULT_COMPRESSION;
@@ -341,9 +341,4 @@ error:
     if (ret.str != NULL) free(ret.str);
     if (ret.err == NULL) ret.err = zlib_error(zst, err, "while compressing data");
     return ret;
-}
-
-
-ByteArray c_compress2(char *input, uint length) {
-    return c_compress2_(input, length, MAX_WBITS);
 }

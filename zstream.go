@@ -102,7 +102,11 @@ func (strm *zstream) inflateInit() error {
 }
 
 func (strm *zstream) deflateInit(level int) error {
-	result := C.zstream_deflate_init(&strm[0], C.int(level))
+	return strm.deflateInit2(level, 0)
+}
+
+func (strm *zstream) deflateInit2(level, wbits int) error {
+	result := C.zstream_deflate_init2(&strm[0], C.int(level), C.int(wbits))
 	if result != Z_OK {
 		return fmt.Errorf("cgzip: failed to initialize deflate (%v): %v", result, strm.msg())
 	}
